@@ -1,49 +1,67 @@
-import pickle
 import os.path
-import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+import string
+import xml.etree.ElementTree as ET # xml reading
+import xmltodict
 
-# writer_id ranges from 0-169
-# drawing_id ranges from 0-(164ish, varies)
+''' 
+using the dataset at:
+https://fki.tic.heia-fr.ch/databases/download-the-iam-on-line-handwriting-database
+specifically 
+https://fki.tic.heia-fr.ch/DBs/iamOnDB/data/original-xml-all.tar.gz
 
-def plot_2d(x, y):
-  plt.scatter(x, y, color='b')
-  plt.xlabel('X')
-  plt.ylabel('Y')
-  plt.show()
+goal: grab strokes
+should normalize positional and time data:
 
-def plot_3d(x, y, z):
-  fig = plt.figure()
-  ax = fig.add_subplot(111, projection='3d')
+x-list of strokes
+- each index contains a list of x^(i) stroke points
+y-list of strings
+- each index is the correct text
+'''
 
-  ax.scatter(x, y, z, color='b')  
+# x[i] is a list of strokes, which are lists of points (themselves a size 3 list)
+x = []
+y = []
 
-  ax.set_xlabel('X')
-  ax.set_ylabel('Y')
-  ax.set_zlabel('Z')
-  plt.show()
-  
+def parse_xml_dict(xml_dict):
+     # strokes is a list containing all strokes, divided into metadata and points
+    strokes = xml_dict['WhiteboardCaptureSession']['StrokeSet']['Stroke']
+    all_stroke_data = []
+    for i in range(len(strokes)):
+        stroke = strokes[i]
+        if isinstance(stroke['Point'], dict): # handles strokes with a single point
+            stroke['Point'] = [stroke['Point']]
+        
+        stroke_data = []
+        for point in stroke['Point']:
+            stroke_data.append([point['@x'], point['@y'], point['@time']])
+        
+        all_stroke_data.append(stroke_data)
+
+    x.append(all_stroke_data)
+    y.append(xml_dict['WhiteboardCaptureSession']['Transcription']['Text'])
+
 if __name__ == "__main__":
-  for writer_id in range(0, 170):
-    for drawing_id in range(0, 170):
-      filename = f"BRUSH/{writer_id}/{drawing_id}"
-      if os.path.isfile(filename):
-          with open(filename, 'rb') as f:
-              [sentence, drawing, label] = pickle.load(f)
-              print(sentence)
-              
-              x = drawing[:, 0]
-              y = drawing[:, 1]
-              y = -y
-              z = drawing[:, 2]
+    flag = False
+    # using IAM database
+    # writer_id ranges from a01 to z01
 
-              plot_2d(x, y) # when you close a plot why is there a new different plot of the same sentence popping up
-              # plot_3d(x, y, z) # got no clue what the 0/1 labeling in z is supposed to be
+    for writer_id_char in list(string.ascii_lowercase):
+        if writer_id_char == 'z':
+            break
+        print(writer_id_char)
+        for writer_id_num in range(0, 11):
+            print(writer_id_num)
+            padded_writer_id_num = "{:02}".format(writer_id_num)
+            for i in range(1000):
+                padded_num = "{:03}".format(i)
+                orig_path = "IAM/original/" + f"{writer_id_char}{padded_writer_id_num}/" + f"{writer_id_char}{padded_writer_id_num}-" + padded_num
 
-              # all labels are same for a sentence?
-              #print(label[0])
-              break
-
-
-
+                if os.path.isfile(orig_path + '/strokesz.xml'):
+                    xmlTree = ET.parse(orig_path + '/strokesz.xml')
+                    root = xmlTree.getroot()
+                    xml_string = ET.tostring(root, encoding='unicode')
+                    xml_dict = xmltodict.parse(xml_string)
+                    
+                    parse_xml_dict(xml_dict)
+    print(len(x))
+    print(len(y))
