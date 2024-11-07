@@ -2,6 +2,7 @@ import os.path
 import string
 import xml.etree.ElementTree as ET # xml reading
 import xmltodict
+import pickle
 
 ''' 
 using the dataset at:
@@ -65,3 +66,7 @@ if __name__ == "__main__":
                     parse_xml_dict(xml_dict)
     print(len(x))
     print(len(y))
+    with open('x_data.pkl', 'wb') as file:
+        pickle.dump(x, file)
+    with open('y_data.pkl', 'wb') as file:
+        pickle.dump(y, file)
