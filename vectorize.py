@@ -41,6 +41,7 @@ class Vectorize:
         with open(file_path, 'rb') as file:
             points = pickle.load(file)
         return cls(points)
+    
     def to_vectors(self, pts) -> np.ndarray:
         """
         Converts the sequence of points into vectors (x1, x2).
@@ -81,8 +82,21 @@ class Vectorize:
 # Assuming you have a .pkl file named 'data.pkl' with points (x1, x2, t)
 if __name__ == "__main__":
     processor = Vectorize.from_pkl('x_data.pkl')
-    x = [processor.getij(0,i) for i in range(10)]
-    print(x)
-    ctrlx = [processor.bezier(4, x[i]) for i in range(10)]
-    print(ctrlx)
+    
+    all_bezier_data = []
+
+    for ex in range(1560):
+        print(ex)
+        x = [processor.getij(0,i) for i in range(47)]
+        # 47 is the minimum number of strokes for any given datapoint
+        # x is a list of strokes
+        ctrlx = [processor.bezier(4, x[i]) for i in range(47)]
+        # 4 DOF -> 5 size dimension
+        # resulting ctrlx is 47 by 5 by 2, representing 47 strokes of 5 (x,y) control points
+
+        all_bezier_data.append(ctrlx)
+
+    with open('x_bezier_data.pkl', 'wb') as file:
+        pickle.dump(all_bezier_data, file)
+        file.close()
 

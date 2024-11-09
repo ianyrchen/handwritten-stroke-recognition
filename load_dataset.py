@@ -68,5 +68,7 @@ if __name__ == "__main__":
     print(len(y))
     with open('x_data.pkl', 'wb') as file:
         pickle.dump(x, file)
+        file.close()
     with open('y_data.pkl', 'wb') as file:
         pickle.dump(y, file)
+        file.close()
