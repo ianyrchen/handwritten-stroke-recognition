@@ -1,5 +1,4 @@
 IAM/
 character_recognition/HCMYO-A/
-*.pth
 *.pkl
 *.h5
