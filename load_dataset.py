@@ -40,6 +40,12 @@ def parse_xml_dict(xml_dict):
 
     x.append(all_stroke_data)
     y.append(xml_dict['WhiteboardCaptureSession']['Transcription']['Text'])
+    while '&quot;' in y[-1]:
+        y[-1] = y[-1].replace('&quot;', '\'')
+    while '&apos;' in y[-1]:
+        y[-1] = y[-1].replace('&apos;', '\'')
+    while ' ' in y[-1]:
+        y[-1] = y[-1].replace(' ', '')
 
 if __name__ == "__main__":
     flag = False
@@ -66,6 +72,8 @@ if __name__ == "__main__":
                     parse_xml_dict(xml_dict)
     print(len(x))
     print(len(y))
+    
+
     with open('x_data.pkl', 'wb') as file:
         pickle.dump(x, file)
         file.close()
