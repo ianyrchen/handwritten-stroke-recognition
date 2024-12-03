@@ -9,7 +9,7 @@ import numpy as np
 
 # Parameters
 input_dim = 128  # Dimension of input feature vectors
-num_classes = 65  # Number of output characters (e.g., 26 letters + space + blank + special)
+num_classes = 75  # Number of output characters (e.g., 26 letters + space + blank + special)
 batch_size = 4
 epochs = 10
 # Load data
@@ -36,7 +36,9 @@ def pad(input_data, target_data):
     return padded_inputs, input_lengths, padded_targets, label_lengths
 
 x = np.asarray(x).astype(np.float32)
-y = np.asarray(y).astype(np.float32)
+max_len = max(len(seq) for seq in y)
+y_padded = [seq + [0] * (max_len - len(seq)) for seq in y]  # Padding with zeros
+y = np.asarray(y_padded).astype(np.float32)
 
 train_inputs, x_temp, train_labels, y_temp = train_test_split(x, y, test_size=0.3, random_state=5)
 x_val, x_test, y_val, y_test = train_test_split(x_temp, y_temp, test_size=0.5, random_state=5)
