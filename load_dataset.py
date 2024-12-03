@@ -46,6 +46,8 @@ def parse_xml_dict(xml_dict):
         y[-1] = y[-1].replace('&apos;', '\'')
     while ' ' in y[-1]:
         y[-1] = y[-1].replace(' ', '')
+    while '\n' in y[-1]:
+        y[-1] = y[-1].replace('\n', '')
 
 if __name__ == "__main__":
     flag = False
