@@ -24,22 +24,24 @@ with open('x_bezier_data.pkl', 'rb') as file:
 
 
 def pad(input_data, target_data):
-    padded_inputs = tf.keras.preprocessing.sequence.pad_sequences(input_data, padding="post", dtype="float32")
-    padded_targets = tf.keras.preprocessing.sequence.pad_sequences(target_data, padding="post", dtype="int32")
+    #padded_inputs = tf.keras.preprocessing.sequence.pad_sequences(input_data, padding="post", dtype="float32")
+    #padded_targets = tf.keras.preprocessing.sequence.pad_sequences(target_data, padding="post", dtype="int32")
     # Create Lengths Arrays
-    input_lengths = np.array([seq.shape[0] for seq in input_data])
+    input_lengths = np.array([len(seq) for seq in input_data])
     label_lengths = np.array([len(seq) for seq in target_data])
     
     # Ensure Correct Shapes
     input_lengths = input_lengths[:, np.newaxis]
     label_lengths = label_lengths[:, np.newaxis]
-    return padded_inputs, input_lengths, padded_targets, label_lengths
+    return input_data, input_lengths, target_data, label_lengths
 
-x = np.asarray(x).astype(np.float32)
+print(len(x))
+print(f'x[0] { x[0] }')
 max_len = max(len(seq) for seq in y)
 y_padded = [seq + [0] * (max_len - len(seq)) for seq in y]  # Padding with zeros
-y = np.asarray(y_padded).astype(np.float32)
-
+#y = np.asarray(y).astype(np.float32)
+y =np.asarray(y, dtype="object")
+x= np.asarray(x,dtype="object")
 train_inputs, x_temp, train_labels, y_temp = train_test_split(x, y, test_size=0.3, random_state=5)
 x_val, x_test, y_val, y_test = train_test_split(x_temp, y_temp, test_size=0.5, random_state=5)
 
@@ -104,7 +106,8 @@ for epoch in range(epochs):
         batch_labels = train_labels[step * batch_size : (step + 1) * batch_size]
         batch_input_lengths = train_input_lengths[step * batch_size : (step + 1) * batch_size]
         batch_label_lengths = train_label_lengths[step * batch_size : (step + 1) * batch_size]
-        
+        print(batch_input_lengths)
+        print(batch_label_lengths)
         loss = train_step(batch_inputs, batch_labels, batch_input_lengths, batch_label_lengths)
         print(f"  Step {step + 1}, Loss: {loss.numpy():.4f}")
 

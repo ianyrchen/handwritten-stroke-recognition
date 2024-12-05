@@ -54,6 +54,8 @@ class Vectorize:
 
     def getij(self, i,j):
         return self.to_vectors(self.points[i][j])
+    def getex(self,ex):
+        return [self.to_vectors(self.points[ex][i]) for i in range(len(self.points[ex]))]
     def bezier(self, deg, pts):
         """
         Finds least square fit bezier curve of degree deg, and returns the control points
@@ -85,12 +87,12 @@ if __name__ == "__main__":
     
     all_bezier_data = []
 
-    for ex in range(1560):
+    for ex in range(962):
         print(ex)
-        x = [processor.getij(0,i) for i in range(47)]
+        x = processor.getex(ex)
         # 47 is the minimum number of strokes for any given datapoint
         # x is a list of strokes
-        ctrlx = [processor.bezier(4, x[i]) for i in range(47)]
+        ctrlx = [processor.bezier(4, x[i]) for i in range(len(x))]
         # 4 DOF -> 5 size dimension
         # resulting ctrlx is 47 by 5 by 2, representing 47 strokes of 5 (x,y) control points
 

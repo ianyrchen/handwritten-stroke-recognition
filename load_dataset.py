@@ -94,10 +94,18 @@ if __name__ == "__main__":
     print(len(x))
     print(len(y))
     
-
+    xmod=[]
+    ymod = []
+    for i in range(1560):
+        if len(x[i]) >= len(y[i]):
+            xmod.append(x[i])
+            ymod.append(y[i])
+    
+    print(len(xmod))
+    print(len(ymod))
     with open('x_data.pkl', 'wb') as file:
-        pickle.dump(x, file)
+        pickle.dump(xmod, file)
         file.close()
     with open('y_data.pkl', 'wb') as file:
-        pickle.dump(y, file)
+        pickle.dump(ymod, file)
         file.close()
