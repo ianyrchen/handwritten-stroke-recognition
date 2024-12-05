@@ -76,9 +76,14 @@ class Vectorize:
         control_pts[0] = pts[0]
         control_pts[-1] = pts[-1]
         return control_pts
-
-
-    
+    def preproc(self, ex, d):
+        rets = []
+        for i in range(len(ex)):
+            b = ex[i] - ex[max(0,i-1)][-1]
+            #print(b.shape)
+            #print(ex[i].shape)
+            rets.append(self.bezier(d,ex[i] - ex[max(0,i-1)][-1]))
+        return rets
 
 # Example usage:
 # Assuming you have a .pkl file named 'data.pkl' with points (x1, x2, t)
@@ -87,12 +92,14 @@ if __name__ == "__main__":
     
     all_bezier_data = []
 
-    for ex in range(962):
-        print(ex)
+    for ex in range(917):
+        # print(ex)
         x = processor.getex(ex)
+        #print(x[ex].shape)
         # 47 is the minimum number of strokes for any given datapoint
         # x is a list of strokes
-        ctrlx = [processor.bezier(4, x[i]) for i in range(len(x))]
+        #ctrlx = [processor.bezier(4, x[i]) for i in range(len(x))]
+        ctrlx = processor.preproc(x, 4)
         # 4 DOF -> 5 size dimension
         # resulting ctrlx is 47 by 5 by 2, representing 47 strokes of 5 (x,y) control points
 

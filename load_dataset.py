@@ -22,6 +22,7 @@ y-list of strings
 # x[i] is a list of strokes, which are lists of points (themselves a size 3 list)
 x = []
 y = []
+ychs = []
 char_to_index = {
     'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8, 'i': 9, 'j': 10, 'k': 11, 'l': 12, 
     'm': 13, 'n': 14, 'o': 15, 'p': 16, 'q': 17, 'r': 18, 's': 19, 't': 20, 'u': 21, 'v': 22, 'w': 23, 
@@ -56,6 +57,7 @@ def parse_xml_dict(xml_dict):
 
     x.append(all_stroke_data)
     y.append(xml_dict['WhiteboardCaptureSession']['Transcription']['Text'])
+    ychs.append(xml_dict['WhiteboardCaptureSession']['Transcription']['Text'])
     if '\#' in y[-1]:
         print(y[-1])
     while '&quot;' in y[-1]:
@@ -66,6 +68,7 @@ def parse_xml_dict(xml_dict):
         y[-1] = y[-1].replace(' ', '')
     while '\n' in y[-1]:
         y[-1] = y[-1].replace('\n', '')
+    ychs[-1] = y[-1]
     y[-1] = [char_to_index[char] if char in char_to_index.keys() else None for char in y[-1]]
 
 if __name__ == "__main__":
@@ -96,10 +99,13 @@ if __name__ == "__main__":
     
     xmod=[]
     ymod = []
+    ychsm = []
     for i in range(1560):
-        if len(x[i]) >= len(y[i]):
+        if len(x[i]) >= 4+ len(y[i]):
             xmod.append(x[i])
             ymod.append(y[i])
+            ychsm.append(ychs[i])
+
     
     print(len(xmod))
     print(len(ymod))
@@ -108,4 +114,7 @@ if __name__ == "__main__":
         file.close()
     with open('y_data.pkl', 'wb') as file:
         pickle.dump(ymod, file)
+        file.close()
+    with open('y_char_data.pkl', 'wb') as file:
+        pickle.dump(ychsm, file)
         file.close()

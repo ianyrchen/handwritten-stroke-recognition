@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
@@ -9,6 +10,7 @@ import string
 import time
 from contextlib import contextmanager
 
+#torch.autograd.set_detect_anomaly(True)
 # Profiler context manager
 @contextmanager
 def profile_section(name):
@@ -21,8 +23,8 @@ def profile_section(name):
 characters = string.ascii_lowercase + string.ascii_uppercase + string.digits + string.punctuation + " "
 
 # Create char_map and reverse mapping
-char_map = {char: idx for idx, char in enumerate(characters)}
-rev_char_map = {idx: char for char, idx in char_map.items()}
+#char_map = {char: idx for idx, char in enumerate(characters)}
+#rev_char_map = {idx: char for char, idx in char_map.items()}
 
 # Custom Dataset
 class StrokeDataset(Dataset):
@@ -36,15 +38,42 @@ class StrokeDataset(Dataset):
         return len(self.x)
 
     def __getitem__(self, idx):
-        input_sequence = [
-            [[float(val) for val in point] for point in stroke]  # Process each point in the stroke
-            for stroke in self.x[idx]  # Iterate over strokes
-        ]
-        flattened_input_sequence = [point for stroke in input_sequence for point in stroke]
+        #input_sequence = [
+        #    [[float(val) for val in point] for point in stroke]  # Process each point in the stroke
+        #    for stroke in self.x[idx]  # Iterate over strokes
+        #]
+        #flattened_input_sequence = [point for stroke in input_sequence for point in stroke]
+        input_sequence = self.x[idx]
+        flattened_input_sequence = [np.ravel(stroke) for stroke in input_sequence]
+        flattened_input_sequence = [[float(val) for val in stroke] for stroke in flattened_input_sequence]
         target_sequence = [self.char_map[char] for char in self.y[idx]]
         return torch.tensor(flattened_input_sequence, dtype=torch.float32), torch.tensor(target_sequence, dtype=torch.long)
 
 # Collate function for padding
+def collate_fn(batch):
+    inputs, targets = zip(*batch)
+    input_lengths = torch.tensor([len(seq) for seq in inputs], dtype=torch.long)
+    target_lengths = torch.tensor([len(seq) for seq in targets], dtype=torch.long)
+
+    padded_inputs = nn.utils.rnn.pad_sequence(inputs, batch_first=True)
+    concatenated_targets = torch.cat(targets)
+
+    return padded_inputs, input_lengths, concatenated_targets, target_lengths
+
+# Model
+class StrokeCTCModel(nn.Module):
+    def __init__(self, input_dim, hidden_dim, num_classes):
+        super(StrokeCTCModel, self).__init__()
+        self.rnn = nn.LSTM(input_dim, hidden_dim, batch_first=True, bidirectional=True)
+        self.fc = nn.Linear(hidden_dim * 2, num_classes)
+
+    def forward(self, x, lengths):
+        packed = pack_padded_sequence(x, lengths.cpu(), batch_first=True, enforce_sorted=False)
+        packed_outputs, _ = self.rnn(packed)
+        outputs, _ = pad_packed_sequence(packed_outputs, batch_first=True)
+        outputs = self.fc(outputs)
+        return outputs
+"""# Collate function for padding
 def collate_fn(batch):
     with profile_section('Collate function'):
         inputs, targets = zip(*batch)
@@ -68,9 +97,63 @@ class StrokeCNNModel(nn.Module):
         x = nn.functional.relu(self.conv2(x))
         x = x.transpose(1, 2)  # Convert back (batch_size, input_dim, seq_len) -> (batch_size, seq_len, hidden_dim)
         outputs = self.fc(x)
-        return outputs
-
+        return outputs"""
 # Training
+
+def smooth_logits(logits, smooth_factor, num_classes):
+    """
+    Apply label smoothing directly to logits.
+    
+    :param logits: Tensor of shape [time, batch, num_classes+1] (logits before log softmax)
+    :param smooth_factor: Smoothing factor
+    :param num_classes: Number of classes (excluding the blank token)
+    :return: Smoothed logits
+    """
+    confidence_value = 1.0 - smooth_factor
+    smoothing_value = smooth_factor / num_classes
+    # Apply inverse smoothing to logits (away from center logits)
+    logits = logits * confidence_value + smoothing_value
+    return logits
+def train_model(model, dataloader, optimizer, criterion, num_epochs,smooth_factor=0.1):
+    model.train()
+    for epoch in range(num_epochs):
+        total_loss = 0
+        i = 0
+        fails = 0
+        for inputs, input_lengths, targets, target_lengths in dataloader:
+            # print(i)
+            optimizer.zero_grad()
+            # Forward pass
+            logits = model(inputs, input_lengths)
+            logits = logits.log_softmax(2)
+            logits = logits.permute(1, 0, 2)
+            epsilon = 0.1
+            num_classes = logits.size(-1)
+
+            # Smooth targets: assuming targets in the format [batch_size, seq_length]
+            smoothed_logits = smooth_logits(logits, smooth_factor, num_classes)
+
+            # CTC Loss
+            loss = criterion(smoothed_logits, targets, input_lengths, target_lengths)
+            if torch.isnan(loss).any() or torch.isinf(loss).any():
+                #print(f"Iteration {i}: loss contains NaN or inf values")
+                #print(f"input lengths - target lengths")
+                #print(input_lengths - target_lengths)
+                print('b', end="", flush=True)
+                fails +=1
+                continue
+            else:
+                print('a', end="", flush=True)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+
+            total_loss += loss.item()
+            # print(loss.item())
+            i+=1
+        print()
+        print(f"Epoch {epoch+1}, Loss: {total_loss/(len(dataloader)-fails)} Fails: { fails}")
+"""# Training
 def train_model(model, dataloader, optimizer, criterion, num_epochs, scaler, device):
     print("Model training started")
     model.train()
@@ -90,6 +173,7 @@ def train_model(model, dataloader, optimizer, criterion, num_epochs, scaler, dev
                 logits = model(inputs, input_lengths)
                 logits = logits.log_softmax(2)
                 loss = criterion(logits.permute(1, 0, 2), targets, input_lengths, target_lengths)
+                print(loss)
 
             with profile_section('Backward and Step'):
                 scaler.scale(loss).backward()
@@ -101,36 +185,36 @@ def train_model(model, dataloader, optimizer, criterion, num_epochs, scaler, dev
 
         epoch_end_time = time.time()
         print(f"Epoch {epoch + 1} finished, Loss: {total_loss / len(dataloader)}, Epoch Time: {epoch_end_time - epoch_start_time:.6f} seconds")
-
+"""
 if __name__ == "__main__":
     with profile_section('Loading data'):
-        with open('y_data.pkl', 'rb') as file:
+        with open('y_char_data.pkl', 'rb') as file:
             y = pickle.load(file)
             print('y loaded')
-        with open('x_data.pkl', 'rb') as file:
+        with open('x_bezier_data.pkl', 'rb') as file:
             x = pickle.load(file)
             print('x loaded')
+    characters = string.ascii_lowercase + string.ascii_uppercase + string.digits + string.punctuation + " "
 
+    # Create char_map and reverse mapping
+    char_map = {char: idx for idx, char in enumerate(characters)}
+    rev_char_map = {idx: char for char, idx in char_map.items()}
+    
     # Dataset and DataLoader
     dataset = StrokeDataset(x, y, char_map)
-    dataloader = DataLoader(dataset, batch_size=32, collate_fn=collate_fn, num_workers=4)
+    dataloader = DataLoader(dataset, batch_size=15, collate_fn=collate_fn)
 
     # Model, optimizer, and loss
-    input_dim = 3  # x, y, time
-    hidden_dim = 128  # Increased from 64
+    input_dim = 10  # x, y, time
+    hidden_dim = 196
     num_classes = len(char_map) + 1  # Add 1 for the blank label in CTC
-    model = StrokeCNNModel(input_dim, hidden_dim, num_classes)
+    model = StrokeCTCModel(input_dim, hidden_dim, num_classes)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = model.to(device)
-
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
     ctc_loss = nn.CTCLoss(blank=num_classes - 1)
-    scaler = torch.cuda.amp.GradScaler()  # For mixed precision training
 
-    # Train with profiling
-    train_model(model, dataloader, optimizer, ctc_loss, num_epochs=10, scaler=scaler, device=device)
-
-    # Save and load model
-    torch.save(model.state_dict(), 'ctc_v2_model.pth')
-    model.load_state_dict(torch.load('ctc_v2_model.pth'))
+    # Train
+    train_model(model, dataloader, optimizer, ctc_loss, num_epochs=3)
+    print(model(x[3]))
+    print(y[3])
+    torch.save(model, 'ctc_v2.pth')
