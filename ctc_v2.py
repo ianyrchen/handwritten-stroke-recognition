@@ -1,9 +1,5 @@
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-
+import tensorflow as tf
+import numpy as np
 import pickle
 import string
 import time
@@ -24,113 +20,113 @@ characters = string.ascii_lowercase + string.ascii_uppercase + string.digits + s
 char_map = {char: idx for idx, char in enumerate(characters)}
 rev_char_map = {idx: char for char, idx in char_map.items()}
 
+# Custom Dataset loader
+def load_data():
+    with open('x_data.pkl', 'rb') as file:
+        x = pickle.load(file)
+    with open('y_char_data.pkl', 'rb') as file:
+        y = pickle.load(file)
+    return x, y
+
+x, y = load_data()
+
 # Custom Dataset
-class StrokeDataset(Dataset):
-    def __init__(self, x, y, char_map):
-        self.x = x
-        self.y = y
-        self.char_map = char_map
-        self.rev_char_map = {v: k for k, v in char_map.items()}
+def stroke_dataset(x, y, char_map):
+    def gen():
+        for i in range(len(x)):
+            input_sequence = [
+                [[float(val) for val in point] for point in stroke]
+                for stroke in x[i]
+            ]
+            flattened_input_sequence = [point for stroke in input_sequence for point in stroke]
+            target_sequence = [char_map[char] for char in y[i]]
+            yield np.array(flattened_input_sequence, dtype=np.float32), np.array(target_sequence, dtype=np.int32)
 
-    def __len__(self):
-        return len(self.x)
+    return tf.data.Dataset.from_generator(
+        gen,
+        output_signature=(
+            tf.TensorSpec(shape=(None, 3), dtype=tf.float32),
+            tf.TensorSpec(shape=(None,), dtype=tf.int32)
+        )
+    )
 
-    def __getitem__(self, idx):
-        input_sequence = [
-            [[float(val) for val in point] for point in stroke]  # Process each point in the stroke
-            for stroke in self.x[idx]  # Iterate over strokes
-        ]
-        flattened_input_sequence = [point for stroke in input_sequence for point in stroke]
-        target_sequence = [self.char_map[char] for char in self.y[idx]]
-        return torch.tensor(flattened_input_sequence, dtype=torch.float32), torch.tensor(target_sequence, dtype=torch.long)
+# Create dataset
+dataset = stroke_dataset(x, y, char_map)
 
-# Collate function for padding
-def collate_fn(batch):
-    with profile_section('Collate function'):
-        inputs, targets = zip(*batch)
-        input_lengths = torch.tensor([len(seq) for seq in inputs], dtype=torch.long)
-        target_lengths = torch.tensor([len(seq) for seq in targets], dtype=torch.long)
-        padded_inputs = nn.utils.rnn.pad_sequence(inputs, batch_first=True)
-        concatenated_targets = torch.cat(targets)
-    return padded_inputs, input_lengths, concatenated_targets, target_lengths
+# Padded batching to handle variable-length sequences
+dataset = dataset.padded_batch(
+    batch_size=32,
+    padded_shapes=([None, 3], [None]),  # Define shapes for input and target
+    padding_values=(0.0, 0)  # Padding values for inputs and targets
+)
+
+# Add prefetch for performance optimization
+dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
 # New Model using Convolutions
-class StrokeCNNModel(nn.Module):
+class StrokeCNNModel(tf.keras.Model):
     def __init__(self, input_dim, hidden_dim, num_classes):
         super(StrokeCNNModel, self).__init__()
-        self.conv1 = nn.Conv1d(input_dim, hidden_dim, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv1d(hidden_dim, hidden_dim, kernel_size=3, stride=1, padding=1)
-        self.fc = nn.Linear(hidden_dim, num_classes)
+        self.conv1 = tf.keras.layers.Conv1D(filters=hidden_dim, kernel_size=3, padding='same', activation='relu')
+        self.conv2 = tf.keras.layers.Conv1D(filters=hidden_dim, kernel_size=3, padding='same', activation='relu')
+        self.dense = tf.keras.layers.Dense(num_classes)
 
-    def forward(self, x, lengths):
-        x = x.transpose(1, 2)  # Convert (batch_size, seq_len, input_dim) -> (batch_size, input_dim, seq_len)
-        x = nn.functional.relu(self.conv1(x))
-        x = nn.functional.relu(self.conv2(x))
-        x = x.transpose(1, 2)  # Convert back (batch_size, input_dim, seq_len) -> (batch_size, seq_len, hidden_dim)
-        outputs = self.fc(x)
-        return outputs
+    def call(self, x, training=False):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.dense(x)
+        return x
+
+# CTC Loss function
+def ctc_loss_fn(y_true, y_pred, input_length, target_length):
+    y_pred = tf.nn.log_softmax(y_pred)
+    loss = tf.nn.ctc_loss(
+        labels=tf.cast(y_true, tf.int32),
+        logits=y_pred,
+        label_length=target_length,
+        logit_length=input_length,
+        logits_time_major=False,
+        blank_index=num_classes - 1
+    )
+    return tf.reduce_mean(loss)
 
 # Training
-def train_model(model, dataloader, optimizer, criterion, num_epochs, scaler, device):
-    print("Model training started")
-    model.train()
+@tf.function
+def train_step(inputs, input_lengths, targets, target_lengths, model, optimizer, loss_object, train_loss_metric):
+    with tf.GradientTape() as tape:
+        logits = model(inputs, training=True)
+        logits_time_len = tf.fill([tf.shape(inputs)[0]], tf.shape(logits)[1])
+        loss = loss_object(targets, logits, logits_time_len, input_lengths)
+
+    gradients = tape.gradient(loss, model.trainable_variables)
+    clipped_gradients = [tf.clip_by_value(grad, -1.0, 1.0) for grad in gradients]
+    optimizer.apply_gradients(zip(clipped_gradients, model.trainable_variables))
+    train_loss_metric.update_state(loss)
+
+def train_model(model, dataset, optimizer, loss_object, num_epochs):
+    train_loss_metric = tf.keras.metrics.Mean()
     for epoch in range(num_epochs):
-        total_loss = 0
-        print(f"Starting epoch {epoch + 1}")
-        epoch_start_time = time.time()
-        for i, (inputs, input_lengths, targets, target_lengths) in enumerate(dataloader):
-            print(f"Batch {i} started")
-            with profile_section('Data transfer'):
-                inputs, targets = inputs.to(device, non_blocking=True), targets.to(device)
-                input_lengths, target_lengths = input_lengths.to(device), target_lengths.to(device)
-
-            optimizer.zero_grad()
-
-            with torch.cuda.amp.autocast():
-                logits = model(inputs, input_lengths)
-                logits = logits.log_softmax(2)
-                loss = criterion(logits.permute(1, 0, 2), targets, input_lengths, target_lengths)
-
-            with profile_section('Backward and Step'):
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
-
-            total_loss += loss.item()
-            print(f"Batch {i} ended")
-
-        epoch_end_time = time.time()
-        print(f"Epoch {epoch + 1} finished, Loss: {total_loss / len(dataloader)}, Epoch Time: {epoch_end_time - epoch_start_time:.6f} seconds")
+        print(f'Starting epoch {epoch + 1}')
+        for batch, (inputs, targets) in enumerate(dataset):
+            print(batch)
+            input_lengths = tf.fill([tf.shape(inputs)[0]], tf.shape(inputs)[1])
+            target_lengths = tf.fill([tf.shape(targets)[0]], tf.shape(targets)[1])
+            train_step(inputs, input_lengths, targets, target_lengths, model, optimizer, loss_object, train_loss_metric)
+            print(f'Batch {batch} - Loss: {train_loss_metric.result().numpy()}')
+        print(f'Epoch {epoch + 1} - Loss: {train_loss_metric.result().numpy()}')
+        train_loss_metric.reset_states()
 
 if __name__ == "__main__":
-    with profile_section('Loading data'):
-        with open('y_data.pkl', 'rb') as file:
-            y = pickle.load(file)
-            print('y loaded')
-        with open('x_data.pkl', 'rb') as file:
-            x = pickle.load(file)
-            print('x loaded')
-
-    # Dataset and DataLoader
-    dataset = StrokeDataset(x, y, char_map)
-    dataloader = DataLoader(dataset, batch_size=32, collate_fn=collate_fn, num_workers=4)
-
-    # Model, optimizer, and loss
+    batch_size = 32
+    num_classes = len(char_map) + 1
+    hidden_dim = 128
     input_dim = 3  # x, y, time
-    hidden_dim = 128  # Increased from 64
-    num_classes = len(char_map) + 1  # Add 1 for the blank label in CTC
+
     model = StrokeCNNModel(input_dim, hidden_dim, num_classes)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+    num_epochs = 10
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = model.to(device)
+    train_model(model, dataset, optimizer, ctc_loss_fn, num_epochs)
 
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
-    ctc_loss = nn.CTCLoss(blank=num_classes - 1)
-    scaler = torch.cuda.amp.GradScaler()  # For mixed precision training
-
-    # Train with profiling
-    train_model(model, dataloader, optimizer, ctc_loss, num_epochs=10, scaler=scaler, device=device)
-
-    # Save and load model
-    torch.save(model.state_dict(), 'ctc_v2_model.pth')
-    model.load_state_dict(torch.load('ctc_v2_model.pth'))
+    model.save('ctc_v2_model')
+    loaded_model = tf.keras.models.load_model('ctc_v2_model', compile=False)
