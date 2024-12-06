@@ -3,7 +3,7 @@ Vectorizing yippee
 
 """
 
-
+import threading
 import pickle
 import numpy as np
 from scipy.special import comb as nOk
@@ -87,13 +87,21 @@ class Vectorize:
 
 # Example usage:
 # Assuming you have a .pkl file named 'data.pkl' with points (x1, x2, t)
-if __name__ == "__main__":
-    processor = Vectorize.from_pkl('x_data.pkl')
+#if __name__ == "__main__":
+def mainloop():
+    print("vecting")
+    fname = 'x_data.pkl'
+    testf = 'whiteboardtest.pkl'
+
+
+    processor = Vectorize.from_pkl(testf)
     
     all_bezier_data = []
 
-    for ex in range(917):
-        # print(ex)
+    ### random bullshit time
+    bob = 1
+    for ex in range(bob):
+        print(ex)
         x = processor.getex(ex)
         #print(x[ex].shape)
         # 47 is the minimum number of strokes for any given datapoint
@@ -102,10 +110,13 @@ if __name__ == "__main__":
         ctrlx = processor.preproc(x, 4)
         # 4 DOF -> 5 size dimension
         # resulting ctrlx is 47 by 5 by 2, representing 47 strokes of 5 (x,y) control points
+        print(ctrlx)
 
         all_bezier_data.append(ctrlx)
-
-    with open('x_bezier_data.pkl', 'wb') as file:
+    savewb = 'bezwb.pkl'
+    #savewb = 'x_bezier_data.pkl'
+    with open(savewb, 'wb') as file:
         pickle.dump(all_bezier_data, file)
         file.close()
-
+    threading.Timer(0.5, mainloop).start()
+mainloop() 

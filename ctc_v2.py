@@ -20,13 +20,41 @@ def profile_section(name):
     print(f'[{name}] execution time: {end_time - start_time:.6f} seconds')
 
 # Include both lowercase and uppercase letters
-characters = string.ascii_lowercase + string.ascii_uppercase + string.digits + string.punctuation + " "
+characters = string.ascii_lowercase + string.ascii_uppercase + string.digits + string.punctuation  +" " 
 
 # Create char_map and reverse mapping
 #char_map = {char: idx for idx, char in enumerate(characters)}
 #rev_char_map = {idx: char for char, idx in char_map.items()}
 
 # Custom Dataset
+def modify_string(s):
+    if not s:
+        return s  # Handle empty string case
+    
+    result = []
+    i = 0
+    while i < len(s):
+        # Start of a potential sequence
+        char = s[i]
+        sequence_start = i
+        
+        # Find the length of the sequence of identical characters
+        while i < len(s) and s[i] == char:
+            i += 1
+        sequence_length = i - sequence_start
+        
+        if sequence_length > 1:
+            # Modify every other character in the sequence to be a dollar sign
+            for j in range(sequence_length):
+                if j % 2 == 0:
+                    result.append(char)
+                else:
+                    result.append('$')
+        else:
+            # Single character sequence, add the character itself
+            result.append(char)
+            
+    return ''.join(result)
 class StrokeDataset(Dataset):
     def __init__(self, x, y, char_map):
         self.x = x
@@ -46,7 +74,9 @@ class StrokeDataset(Dataset):
         input_sequence = self.x[idx]
         flattened_input_sequence = [np.ravel(stroke) for stroke in input_sequence]
         flattened_input_sequence = [[float(val) for val in stroke] for stroke in flattened_input_sequence]
-        target_sequence = [self.char_map[char] for char in self.y[idx]]
+        target_sequence = [self.char_map[char] for char in self.y[idx]] 
+        #print(self.y[idx])
+        #target_sequence = [self.char_map[char] for char in modify_string(self.y[idx])]
         return torch.tensor(flattened_input_sequence, dtype=torch.float32), torch.tensor(target_sequence, dtype=torch.long)
 
 # Collate function for padding
@@ -115,6 +145,7 @@ def smooth_logits(logits, smooth_factor, num_classes):
     logits = logits * confidence_value + smoothing_value
     return logits
 def train_model(model, dataloader, optimizer, criterion, num_epochs,smooth_factor=0.1):
+    lossstored = []
     model.train()
     for epoch in range(num_epochs):
         total_loss = 0
@@ -135,15 +166,15 @@ def train_model(model, dataloader, optimizer, criterion, num_epochs,smooth_facto
 
             # CTC Loss
             loss = criterion(smoothed_logits, targets, input_lengths, target_lengths)
-            if torch.isnan(loss).any() or torch.isinf(loss).any():
+            """if torch.isnan(loss).any() or torch.isinf(loss).any():
                 #print(f"Iteration {i}: loss contains NaN or inf values")
                 #print(f"input lengths - target lengths")
                 #print(input_lengths - target_lengths)
                 print('b', end="", flush=True)
                 fails +=1
                 continue
-            else:
-                print('a', end="", flush=True)
+            else:"""
+            print('a', end="", flush=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
@@ -153,6 +184,16 @@ def train_model(model, dataloader, optimizer, criterion, num_epochs,smooth_facto
             i+=1
         print()
         print(f"Epoch {epoch+1}, Loss: {total_loss/(len(dataloader)-fails)} Fails: { fails}")
+        lossstored.append(total_loss/(len(dataloader)-fails))
+        if epoch%10==9 and epoch>0:
+            save_path = 'train_model_epoch_'
+            torch.save({
+                'epoch': epoch + 1,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': total_loss / (len(dataloader)-fails),
+            }, f'{save_path}{epoch + 1}.pt')
+    return lossstored
 """# Training
 def train_model(model, dataloader, optimizer, criterion, num_epochs, scaler, device):
     print("Model training started")
@@ -188,7 +229,7 @@ def train_model(model, dataloader, optimizer, criterion, num_epochs, scaler, dev
 """
 if __name__ == "__main__":
     with profile_section('Loading data'):
-        with open('y_char_data.pkl', 'rb') as file:
+        with open('ymod.pkl', 'rb') as file:
             y = pickle.load(file)
             print('y loaded')
         with open('x_bezier_data.pkl', 'rb') as file:
@@ -214,7 +255,10 @@ if __name__ == "__main__":
     ctc_loss = nn.CTCLoss(blank=num_classes - 1)
 
     # Train
-    train_model(model, dataloader, optimizer, ctc_loss, num_epochs=3)
-    print(model(x[3]))
-    print(y[3])
+    losses = train_model(model, dataloader, optimizer, ctc_loss, num_epochs=50)
+    with open('lossctc2.pkl', 'wb') as f:
+        pickle.dump(losses, f)
+        
+    #print(model(x[3]))
+    #print(y[3])
     torch.save(model, 'ctc_v2.pth')
