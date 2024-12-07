@@ -8,8 +8,7 @@ import numpy as np
 class TraceDataset(Dataset):
     def __init__(self, root_dir=None, preloaded_data=None, normalize=False):
         """
-        Args:
-            root_dir (str): Directory with all the data files
+            root_dir (str): directory with all the data files
             preloaded_data (tuple): A tuple containing preloaded data and labels
             normalize (bool): Flag to always normalize the data
         """
@@ -30,7 +29,7 @@ class TraceDataset(Dataset):
 
     def _load_data(self):
         """
-        Loads data from the provided directory.
+        loads data from provided directory.
         """
         for label_folder in os.listdir(self.root_dir):
             label_path = os.path.join(self.root_dir, label_folder)
@@ -50,15 +49,10 @@ class TraceDataset(Dataset):
                             self.labels.append(self.label_map[label_folder])
 
     def _compute_mean_std(self):
-        """
-        Computes the mean and std across the entire dataset for normalization.
-        """
-        # Flatten all data points into one large array (num_samples, 2) for x, y coordinates
+       
         all_data = np.array([point for trace in self.data for point in trace])  # Shape: (num_samples, 2)
-        
-        # Compute the mean and std for each feature (x and y)
-        mean = np.mean(all_data, axis=0)  # Mean of each feature (x, y)
-        std = np.std(all_data, axis=0)    # Std of each feature (x, y)
+        mean = np.mean(all_data, axis=0)  
+        std = np.std(all_data, axis=0)    
         
         print(f"Mean: {mean}, Std: {std}")
         return mean, std

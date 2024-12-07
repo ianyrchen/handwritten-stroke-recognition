@@ -6,7 +6,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import string
 import pickle
 import time 
-# Custom Dataset
+
 class StrokeDataset(Dataset):
     def __init__(self, x, y, char_map):
         self.x = x
@@ -27,7 +27,6 @@ class StrokeDataset(Dataset):
         target_sequence = [self.char_map[char] for char in self.y[idx]]
         return torch.tensor(flattened_input_sequence, dtype=torch.float32), torch.tensor(target_sequence, dtype=torch.long)
 
-# Collate function for padding
 def collate_fn(batch):
     inputs, targets = zip(*batch)
     input_lengths = torch.tensor([len(seq) for seq in inputs], dtype=torch.long)
@@ -38,7 +37,7 @@ def collate_fn(batch):
 
     return padded_inputs, input_lengths, concatenated_targets, target_lengths
 
-# Model
+# model
 class StrokeCTCModel(nn.Module):
     def __init__(self, input_dim, hidden_dim, num_classes):
         super(StrokeCTCModel, self).__init__()
@@ -52,7 +51,7 @@ class StrokeCTCModel(nn.Module):
         outputs = self.fc(outputs)
         return outputs
 
-# Training
+
 def train_model(model, dataloader, optimizer, criterion, num_epochs):
     model.train()
     for epoch in range(num_epochs):
@@ -60,15 +59,15 @@ def train_model(model, dataloader, optimizer, criterion, num_epochs):
         total_loss = 0
         i = 0
         for inputs, input_lengths, targets, target_lengths in dataloader:
-            start_time = time.time()  # Start timing
+            start_time = time.time()  
             
             optimizer.zero_grad()
 
-            # Forward pass
+            # forward 
             logits = model(inputs, input_lengths)
             logits = logits.log_softmax(2)
 
-            # CTC Loss
+            # CTC loss
             loss = criterion(logits.permute(1, 0, 2), targets, input_lengths, target_lengths)
             loss.backward()
             optimizer.step()
@@ -89,9 +88,8 @@ def train_model(model, dataloader, optimizer, criterion, num_epochs):
             'loss': total_loss / len(dataloader),
         }, f'{save_path}{epoch + 1}.pt')
 
-# Example Usage
+
 if __name__ == "__main__":
-    # Data
     with open('x_data.pkl', 'rb') as file:
         x = pickle.load(file)
     with open('y_char_data.pkl', 'rb') as file:
@@ -100,15 +98,12 @@ if __name__ == "__main__":
     
     characters = string.ascii_lowercase + string.ascii_uppercase + string.digits + string.punctuation + " "
 
-    # Create char_map and reverse mapping
     char_map = {char: idx for idx, char in enumerate(characters)}
     rev_char_map = {idx: char for char, idx in char_map.items()}
     
-    # Dataset and DataLoader
     dataset = StrokeDataset(x, y, char_map)
     dataloader = DataLoader(dataset, batch_size=2, collate_fn=collate_fn)
 
-    # Model, optimizer, and loss
     input_dim = 3  # x, y, time
     hidden_dim = 128
     num_classes = len(char_map) + 1  # Add 1 for the blank label in CTC

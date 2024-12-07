@@ -28,7 +28,6 @@ def model_init(sequence_length, sub_step_dim1, sub_step_dim2, hidden_dim, num_la
 
 
 if __name__ == "__main__":
-    # Load data
     with open('y_tfidf_data.pkl', 'rb') as file:
         y = pickle.load(file)
         print('y loaded')
@@ -44,13 +43,12 @@ if __name__ == "__main__":
     x_train, x_temp, y_train, y_temp = train_test_split(x, y, test_size=0.3, random_state=5)
     x_val, x_test, y_val, y_test = train_test_split(x_temp, y_temp, test_size=0.5, random_state=5)
 
-    # Model params
     sequence_length = 47            
     sub_step_dim1 = 5               # control points
     sub_step_dim2 = 2               
-    hidden_dim = 128                # dimension of the lstm layers
-    num_layers = 2                  # number of lstm layers
-    output_dim = 1000               # output dimension for multi-label classification
+    hidden_dim = 128                
+    num_layers = 2                 
+    output_dim = 1000               
 
     model = model_init(sequence_length, sub_step_dim1, sub_step_dim2, hidden_dim, num_layers, output_dim)
 

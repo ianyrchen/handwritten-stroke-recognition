@@ -5,7 +5,6 @@ import string
 import time
 from contextlib import contextmanager
 
-# Profiler context manager
 @contextmanager
 def profile_section(name):
     start_time = time.time()
@@ -13,14 +12,13 @@ def profile_section(name):
     end_time = time.time()
     print(f'[{name}] execution time: {end_time - start_time:.6f} seconds')
 
-# Include both lowercase and uppercase letters
+# include both lowercase and uppercase letters
 characters = string.ascii_lowercase + string.ascii_uppercase + string.digits + string.punctuation + " "
 
-# Create char_map and reverse mapping
 char_map = {char: idx for idx, char in enumerate(characters)}
 rev_char_map = {idx: char for char, idx in char_map.items()}
 
-# Custom Dataset loader
+# load dataset
 def load_data():
     with open('x_data.pkl', 'rb') as file:
         x = pickle.load(file)
@@ -30,7 +28,7 @@ def load_data():
 
 x, y = load_data()
 
-# Custom Dataset
+
 def stroke_dataset(x, y, char_map):
     def gen():
         for i in range(len(x)):
@@ -50,20 +48,20 @@ def stroke_dataset(x, y, char_map):
         )
     )
 
-# Create dataset
+# create dataset
 dataset = stroke_dataset(x, y, char_map)
 
-# Padded batching to handle variable-length sequences
+# padded batching for variable-length sequences
 dataset = dataset.padded_batch(
     batch_size=32,
-    padded_shapes=([None, 3], [None]),  # Define shapes for input and target
-    padding_values=(0.0, 0)  # Padding values for inputs and targets
+    padded_shapes=([None, 3], [None]),  
+    padding_values=(0.0, 0) 
 )
 
-# Add prefetch for performance optimization
+
 dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
-# New Model using Convolutions
+
 class StrokeCNNModel(tf.keras.Model):
     def __init__(self, input_dim, hidden_dim, num_classes):
         super(StrokeCNNModel, self).__init__()

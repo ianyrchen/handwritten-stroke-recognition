@@ -80,8 +80,7 @@ class Vectorize:
 
     
 
-# Example usage:
-# Assuming you have a .pkl file named 'data.pkl' with points (x1, x2, t)
+# assume you have a .pkl file named 'data.pkl' with points (x1, x2, t)
 if __name__ == "__main__":
     processor = Vectorize.from_pkl('x_data.pkl')
     
