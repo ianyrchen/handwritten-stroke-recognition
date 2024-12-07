@@ -1,5 +1,11 @@
 """
 Vectorizing yippee
+Something not stupid
+each stroke becomes  just displacement, curvature, 
+
+O(n) stroke decomp
+O(1)
+
 
 """
 
@@ -40,7 +46,7 @@ class Vectorize:
         """
         with open(file_path, 'rb') as file:
             points = pickle.load(file)
-        return cls(points)
+        return cls(points), len(points)
     
     def to_vectors(self, pts) -> np.ndarray:
         """
@@ -52,6 +58,12 @@ class Vectorize:
         vectors = np.array([(int(x1), int(x2)) for x1, x2, t in pts])
         return vectors
 
+    def nflat(self, n, stroke):
+        k = len(stroke)
+        return self.to_vectors([stroke[round((k-1)*i/(n-1))] for i in range(n)])
+    def nflatall(self, n, ex):
+        return [self.nflat(n, self.points[ex][stroke]) for stroke in range(len(self.points[ex]))]
+            
     def getij(self, i,j):
         return self.to_vectors(self.points[i][j])
     def getex(self,ex):
@@ -76,46 +88,48 @@ class Vectorize:
         control_pts[0] = pts[0]
         control_pts[-1] = pts[-1]
         return control_pts
-    def preproc(self, ex, d):
-        rets = []
+    def postproc(self, ex, n):
+        bob = self.nflatall(n, ex)
+        return [[bob[s][i] - bob[max(0, s-1)][-1] for i in range(len(bob[s]))] for s in range(len(bob))]
+        """rets = []
         for i in range(len(ex)):
             b = ex[i] - ex[max(0,i-1)][-1]
             #print(b.shape)
             #print(ex[i].shape)
-            rets.append(self.bezier(d,ex[i] - ex[max(0,i-1)][-1]))
+            rets.append(self.nflatall(d, ex[i] - ex[max(0,i-1)][-1]))
         return rets
-
+"""
 # Example usage:
 # Assuming you have a .pkl file named 'data.pkl' with points (x1, x2, t)
 #if __name__ == "__main__":
 def mainloop():
-    print("vecting")
-    fname = 'x_data.pkl'
-    testf = 'whiteboardtest.pkl'
+    #print("vecting")
+    #fname = 'x_data.pkl'
+    fname = 'whiteboardtest.pkl'
 
 
-    processor = Vectorize.from_pkl(testf)
+    processor, size = Vectorize.from_pkl(fname)
     
-    all_bezier_data = []
+    all_data = []
 
     ### random bullshit time
-    bob = 1
+    bob = size
     for ex in range(bob):
         print(ex)
-        x = processor.getex(ex)
+        x = processor.postproc(ex, 8)
         #print(x[ex].shape)
         # 47 is the minimum number of strokes for any given datapoint
         # x is a list of strokes
         #ctrlx = [processor.bezier(4, x[i]) for i in range(len(x))]
-        ctrlx = processor.preproc(x, 4)
+        # ctrlx = processor.preproc(x, 4)
         # 4 DOF -> 5 size dimension
         # resulting ctrlx is 47 by 5 by 2, representing 47 strokes of 5 (x,y) control points
 
-        all_bezier_data.append(ctrlx)
+        all_data.append(x)
     savewb = 'bezwb.pkl'
-    #savewb = 'x_bezier_data.pkl'
+    #savewb = 'x_naive_data.pkl'
     with open(savewb, 'wb') as file:
-        pickle.dump(all_bezier_data, file)
+        pickle.dump(all_data, file)
         file.close()
     threading.Timer(0.5, mainloop).start()
 mainloop() 

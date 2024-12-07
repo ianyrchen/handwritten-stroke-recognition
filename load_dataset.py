@@ -23,6 +23,13 @@ y-list of strings
 x = []
 y = []
 ychs = []
+
+characters = string.ascii_lowercase + string.ascii_uppercase + string.digits + string.punctuation  +" " 
+char_map = {char: idx for idx, char in enumerate(characters)}
+rev_char_map = {idx: char for char, idx in char_map.items()}
+    
+
+
 char_to_index = {
     'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8, 'i': 9, 'j': 10, 'k': 11, 'l': 12, 
     'm': 13, 'n': 14, 'o': 15, 'p': 16, 'q': 17, 'r': 18, 's': 19, 't': 20, 'u': 21, 'v': 22, 'w': 23, 
@@ -69,7 +76,7 @@ def parse_xml_dict(xml_dict):
     while '\n' in y[-1]:
         y[-1] = y[-1].replace('\n', '')
     ychs[-1] = y[-1]
-    y[-1] = [char_to_index[char] if char in char_to_index.keys() else None for char in y[-1]]
+    y[-1] = [char_map[char] for char in y[-1]] #[char_to_index[char] if char in char_to_index.keys() else None for char in y[-1]]
 
 if __name__ == "__main__":
     flag = False
@@ -116,5 +123,14 @@ if __name__ == "__main__":
         pickle.dump(ymod, file)
         file.close()
     with open('y_char_data.pkl', 'wb') as file:
+        pickle.dump(ychsm, file)
+        file.close()
+    with open('x_data_full.pkl', 'wb') as file:
+        pickle.dump(x, file)
+        file.close()
+    with open('y_data_full.pkl', 'wb') as file:
+        pickle.dump(y, file)
+        file.close()
+    with open('y_char_data_full.pkl', 'wb') as file:
         pickle.dump(ychsm, file)
         file.close()
