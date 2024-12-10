@@ -166,15 +166,15 @@ def train_model(model, dataloader, optimizer, criterion, num_epochs,smooth_facto
 
             # CTC Loss
             loss = criterion(smoothed_logits, targets, input_lengths, target_lengths)
-            """if torch.isnan(loss).any() or torch.isinf(loss).any():
+            if torch.isnan(loss).any() or torch.isinf(loss).any():
                 #print(f"Iteration {i}: loss contains NaN or inf values")
                 #print(f"input lengths - target lengths")
                 #print(input_lengths - target_lengths)
                 print('b', end="", flush=True)
                 fails +=1
                 continue
-            else:"""
-            print('a', end="", flush=True)
+            else:
+                print('a', end="", flush=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
