@@ -229,10 +229,10 @@ def train_model(model, dataloader, optimizer, criterion, num_epochs, scaler, dev
 """
 if __name__ == "__main__":
     with profile_section('Loading data'):
-        with open('ymod.pkl', 'rb') as file:
+        with open('y_train.pkl', 'rb') as file:
             y = pickle.load(file)
             print('y loaded')
-        with open('x_bezier_data.pkl', 'rb') as file:
+        with open('x_train.pkl', 'rb') as file:
             x = pickle.load(file)
             print('x loaded')
     characters = string.ascii_lowercase + string.ascii_uppercase + string.digits + string.punctuation + " "
