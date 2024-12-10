@@ -57,6 +57,28 @@ class Vectorize:
         """
         vectors = np.array([(int(x1), int(x2)) for x1, x2, t in pts])
         return vectors
+    def stime(self, stroke):
+        time = float(stroke[-1][2]) - float(stroke[0][2])
+        return [(np.array([float(stroke[i][0]), float(stroke[i][1])]), (float(stroke[i][2]) - float(stroke[0][2]))) for i in range(len(stroke))]
+    def alldstroke(self, tolerance, ex):
+        strokes = []
+        for st in self.points[ex]:
+            strokes.append(self.dstroke(tolerance, st))
+        #return [(self.bezier(3, strokes[i]) - (strokes[i-1][-1] if i !=0 else strokes[0][0])) if strokes[i] else None for i in range(len(strokes))]
+        #print(strokes[0])
+        #print([(strokes[i] - (strokes[i-1][-1] if i !=0 else strokes[0][0])) if strokes[i] else None for i in range(len(strokes))])
+
+    def dstroke(self, tolerance, stroke):
+        n = len(stroke)
+        stroke = self.stime(stroke)
+        del1 = [(stroke[i+1][0] - stroke[i][0])/(stroke[i+1][1] - stroke[i][1]) for i in range(n-1)]
+        del2 = [del1[i+1] - del1[i] for i in range(n-2)]
+        wacks = [0]
+        print(del2)
+        wacks.extend([i +1 for i, v in enumerate(del2) if np.linalg.norm(v) > tolerance])
+        wacks.append(n-1)
+        print(len(wacks)-2)
+        return [stroke[a:b+1][0] for a,b in [(wacks[i], wacks[i+1]) for i in range(len(wacks)-1)] if b-a > 3]
 
     def nflat(self, n, stroke):
         k = len(stroke)
@@ -101,11 +123,11 @@ class Vectorize:
 """
 # Example usage:
 # Assuming you have a .pkl file named 'data.pkl' with points (x1, x2, t)
-#if __name__ == "__main__":
-def mainloop():
+if __name__ == "__main__":
+#def mainloop():
     #print("vecting")
     fname = 'x_data.pkl'
-    fname = 'whiteboardtest.pkl'
+    #fname = 'whiteboardtest.pkl'
 
 
     processor, size = Vectorize.from_pkl(fname)
@@ -116,7 +138,7 @@ def mainloop():
     bob = size
     for ex in range(bob):
         print(ex)
-        x = processor.postproc(ex, 8)
+        x = processor.alldstroke(100, ex)
         #print(x[ex].shape)
         # 47 is the minimum number of strokes for any given datapoint
         # x is a list of strokes
@@ -126,10 +148,10 @@ def mainloop():
         # resulting ctrlx is 47 by 5 by 2, representing 47 strokes of 5 (x,y) control points
 
         all_data.append(x)
-    savewb = 'bezwb.pkl'
-    #savewb = 'x_naive_data.pkl'
+    #savewb = 'bezwb.pkl'
+    savewb = 'x_kill_data.pkl'
     with open(savewb, 'wb') as file:
         pickle.dump(all_data, file)
         file.close()
-    threading.Timer(0.5, mainloop).start()
-mainloop() 
+#    threading.Timer(0.5, mainloop).start()
+#mainloop() 

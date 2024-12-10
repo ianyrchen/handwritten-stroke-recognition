@@ -233,7 +233,7 @@ if __name__ == "__main__":
         with open('y_data.pkl', 'rb') as file:
             y = pickle.load(file)
             print('y loaded')
-        with open('x_naive_data.pkl', 'rb') as file:
+        with open('x_curv.pkl', 'rb') as file:
             x = pickle.load(file)
             print('x loaded')
     characters = string.ascii_lowercase + string.ascii_uppercase + string.digits + string.punctuation + " "
@@ -247,7 +247,7 @@ if __name__ == "__main__":
     dataloader = DataLoader(dataset, batch_size=15, collate_fn=collate_fn)
 
     # Model, optimizer, and loss
-    input_dim = 16  # x, y, time
+    input_dim = 8  # x, y, time
     hidden_dim = 196
     num_classes = len(char_map) + 1  # Add 1 for the blank label in CTC
     model = StrokeCTCModel(input_dim, hidden_dim, num_classes)
