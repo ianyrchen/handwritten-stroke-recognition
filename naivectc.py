@@ -247,7 +247,7 @@ if __name__ == "__main__":
     dataloader = DataLoader(dataset, batch_size=15, collate_fn=collate_fn)
 
     # Model, optimizer, and loss
-    input_dim = 8  # x, y, time
+    input_dim = 20  # x, y, time
     hidden_dim = 196
     num_classes = len(char_map) + 1  # Add 1 for the blank label in CTC
     model = StrokeCTCModel(input_dim, hidden_dim, num_classes)

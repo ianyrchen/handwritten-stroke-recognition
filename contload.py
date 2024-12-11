@@ -7,11 +7,11 @@ from ctc_v2 import StrokeCTCModel
 import pickle
 
 # Load the model checkpoint
-checkpoint_path = 'ntrain_model_epoch_50.pt'
+checkpoint_path = 'ntrain_model_epoch_30.pt'
 checkpoint = torch.load(checkpoint_path)
 
 # Initialize the model with the same dimensions as during training
-input_dim = 16  # x, y, time
+input_dim = 20  # x, y, time
 hidden_dim = 196
 characters = string.ascii_lowercase + string.ascii_uppercase + string.digits + string.punctuation +" "
 num_classes = len(characters) + 1  # +1 for the blank label in CTC
