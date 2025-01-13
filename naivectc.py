@@ -74,7 +74,8 @@ class StrokeDataset(Dataset):
         input_sequence = self.x[idx]
         flattened_input_sequence = [np.ravel(stroke) for stroke in input_sequence]
         flattened_input_sequence = [[float(val) for val in stroke] for stroke in flattened_input_sequence]
-        target_sequence = [self.char_map[char] for char in self.y[idx]] 
+        target_sequence = self.y[idx] #[self.char_map[char] for char in self.y[idx]] 
+        #print(target_sequence)
         #print(self.y[idx])
         #target_sequence = [self.char_map[char] for char in modify_string(self.y[idx])]
         return torch.tensor(flattened_input_sequence, dtype=torch.float32), torch.tensor(target_sequence, dtype=torch.long)
@@ -169,7 +170,7 @@ def train_model(model, dataloader, optimizer, criterion, num_epochs,smooth_facto
             if torch.isnan(loss).any() or torch.isinf(loss).any():
                 #print(f"Iteration {i}: loss contains NaN or inf values")
                 #print(f"input lengths - target lengths")
-                #print(input_lengths - target_lengths)
+                #print(target_lengths)
                 print('b', end="", flush=True)
                 fails +=1
                 continue
@@ -186,7 +187,7 @@ def train_model(model, dataloader, optimizer, criterion, num_epochs,smooth_facto
         print(f"Epoch {epoch+1}, Loss: {total_loss/(len(dataloader)-fails)} Fails: { fails}")
         lossstored.append(total_loss/(len(dataloader)-fails))
         if epoch%10==9 and epoch>0:
-            save_path = 'train_model_epoch_'
+            save_path = 'ntrain_model_epoch_'
             torch.save({
                 'epoch': epoch + 1,
                 'model_state_dict': model.state_dict(),
@@ -229,10 +230,10 @@ def train_model(model, dataloader, optimizer, criterion, num_epochs, scaler, dev
 """
 if __name__ == "__main__":
     with profile_section('Loading data'):
-        with open('y_train.pkl', 'rb') as file:
+        with open('y_data.pkl', 'rb') as file:
             y = pickle.load(file)
             print('y loaded')
-        with open('x_train.pkl', 'rb') as file:
+        with open('x_naive_data.pkl', 'rb') as file:
             x = pickle.load(file)
             print('x loaded')
     characters = string.ascii_lowercase + string.ascii_uppercase + string.digits + string.punctuation + " "
@@ -246,7 +247,7 @@ if __name__ == "__main__":
     dataloader = DataLoader(dataset, batch_size=15, collate_fn=collate_fn)
 
     # Model, optimizer, and loss
-    input_dim = 10  # x, y, time
+    input_dim = 16  # x, y, time
     hidden_dim = 196
     num_classes = len(char_map) + 1  # Add 1 for the blank label in CTC
     model = StrokeCTCModel(input_dim, hidden_dim, num_classes)
@@ -256,7 +257,7 @@ if __name__ == "__main__":
 
     # Train
     losses = train_model(model, dataloader, optimizer, ctc_loss, num_epochs=50)
-    with open('lossctc2.pkl', 'wb') as f:
+    with open('lossctcnaive.pkl', 'wb') as f:
         pickle.dump(losses, f)
         
     #print(model(x[3]))
