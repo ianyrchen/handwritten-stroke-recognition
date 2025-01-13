@@ -1,1 +1,2 @@
-# cs229project
+# CS229 Project
+This project explores a machine learning approach for predicting handwritten words based on stroke-based input. We apply a combination of preprocessing techniques, neural networks, and Connectionist Temporal Classification (CTC) loss to develop a system capable of predicting text from handwritten strokes. Using the IAM Online Handwriting Database, we trained a Long Short-Term Memory (LSTM) network. We achieve an average of 70.7% accuracy using a normalized Levenshtein accuracy.

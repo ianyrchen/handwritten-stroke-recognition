@@ -49,18 +49,17 @@ if __name__ == '__main__':
 
             y_tensor = torch.tensor(batch_labels, dtype=torch.long)  
 
-            # Forward pass
+            # forward
             outputs = model(x_padded)  
             loss = criterion(outputs, y_tensor)
 
-            # Backward pass
+            # backward
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             epoch_loss += loss.item()
 
-            # Calculate accuracy 
             _, predicted = torch.max(outputs, 1)
             correct = (predicted == y_tensor).sum().item()  
             epoch_correct += correct

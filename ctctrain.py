@@ -7,12 +7,12 @@ from tensorflow.keras.models import Model
 import tensorflow as tf
 import numpy as np
 
-# Parameters
-input_dim = 128  # Dimension of input feature vectors
-num_classes = 75  # Number of output characters (e.g., 26 letters + space + blank + special)
+
+input_dim = 128  
+num_classes = 75 
 batch_size = 4
 epochs = 10
-# Load data
+
 with open('y_data.pkl', 'rb') as file:
     y = pickle.load(file)
     print('y loaded')
@@ -26,11 +26,9 @@ with open('x_bezier_data.pkl', 'rb') as file:
 def pad(input_data, target_data):
     #padded_inputs = tf.keras.preprocessing.sequence.pad_sequences(input_data, padding="post", dtype="float32")
     #padded_targets = tf.keras.preprocessing.sequence.pad_sequences(target_data, padding="post", dtype="int32")
-    # Create Lengths Arrays
     input_lengths = np.array([len(seq) for seq in input_data])
     label_lengths = np.array([len(seq) for seq in target_data])
     
-    # Ensure Correct Shapes
     input_lengths = input_lengths[:, np.newaxis]
     label_lengths = label_lengths[:, np.newaxis]
     return input_data, input_lengths, target_data, label_lengths
@@ -49,19 +47,18 @@ train_inputs, train_input_lengths, train_labels, train_label_lengths = pad(train
 print("Input lengths:", train_input_lengths)
 print("Label lengths:", train_label_lengths)
 
-# Generate Mock Data for Training
 """max_input_len = 200
 max_label_len = 50
 train_inputs, train_labels, train_input_lengths, train_label_lengths = generate_mock_data(
     batch_size, max_input_len, max_label_len, input_dim, num_classes
 )"""
-# Model Definition
+
 def create_model(input_dim, num_classes):
-    inputs = tf.keras.Input(shape=(None, 5, 2,1), name="inputs")  # Update input shape
+    inputs = tf.keras.Input(shape=(None, 5, 2,1), name="inputs")  
     x = tf.keras.layers.TimeDistributed(
         tf.keras.layers.Conv2D(32, (3, 3), activation="relu", padding="same")
-    )(inputs)  # Process (5, 2) dimensions
-    x = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(x)  # Flatten the spatial dimensions
+    )(inputs)  
+    x = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())(x)  
     x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(256, return_sequences=True))(x)
     x = tf.keras.layers.Dense(num_classes + 1, activation="softmax")(x)  # +1 for blank token
     model = tf.keras.Model(inputs, x)
@@ -74,21 +71,21 @@ def create_model(input_dim, num_classes):
     model = tf.keras.Model(inputs, x)
     return model"""
 
-# Create Model
+
 model = create_model(input_dim, num_classes)
 model.summary()
 
-# Training with Custom Loss and Training Step
+
 @tf.function
 def ctc_loss(y_true, y_pred, input_lengths, label_lengths):
     return tf.reduce_mean(
         tf.keras.backend.ctc_batch_cost(y_true, y_pred, input_lengths, label_lengths)
     )
 
-# Optimizer
+
 optimizer = tf.keras.optimizers.Adam()
 
-# Training Step
+
 @tf.function
 def train_step(inputs, labels, input_lengths, label_lengths):
     with tf.GradientTape() as tape:
@@ -98,7 +95,7 @@ def train_step(inputs, labels, input_lengths, label_lengths):
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     return loss
 
-# Training Loop
+
 for epoch in range(epochs):
     print(f"Epoch {epoch + 1}/{epochs}")
     for step in range(len(train_inputs) // batch_size):
